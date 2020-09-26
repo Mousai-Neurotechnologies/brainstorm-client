@@ -1,5 +1,5 @@
 # [brainstorm-client](https://github.com/Mousai-Neurotechnologies/brainstorm-client)
-Streaming Data from OpenBCI Headsets into the Web
+Stream data from OpenBCI headsets into the web
 
 [![Github badge](https://img.shields.io/badge/github-source_code-blue.svg?logo=github&logoColor=white)](https://github.com/Mousai-Neurotechnologies/brainstorm-client)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
