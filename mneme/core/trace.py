@@ -104,12 +104,15 @@ class Trace(object):
     
     def signal_handler(self, signal, frame):
 
-        print('\nExiting brainstorm-client.')
+        print('\nStopping data stream.')
         flag = True
 
         # Disconnect socket
         self.socket.disconnect()
         delattr(self, 'socket')
+
+        # Stop stream
+        self.board.stop_stream()
 
         while flag:
         # Give the option to save data locally
@@ -128,6 +131,6 @@ class Trace(object):
             else: 
                 print("Invalid input.")
 
-        stop_stream(self.board,self.start_time)
+        self.board.release_session()
 
-        sys.exit(0)
+        sys.exit('Exiting brainstorm-client...')
