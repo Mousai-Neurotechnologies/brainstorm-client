@@ -7,7 +7,7 @@ import quantities as pq
 import numpy as np
 import pickle
 
-STREAM = 'OPENBCI' 
+STREAM = 'SYNTHETIC' # 'OPENBCI' 
                         # Streams
                             # OPENBCI
                             # SYNTHETIC
@@ -16,7 +16,7 @@ STREAM = 'OPENBCI'
                             # Mac: '/dev/cu.usbserial-DM01N7AE'
                             # Windows: 'COM4'
                             # Synthetic: None
-PORT = '/dev/cu.usbserial-DM01N7AE'
+PORT = None # '/dev/cu.usbserial-DM01N7AE'
 
 # Initialize the Trace
 trace = Trace(id = 'User')

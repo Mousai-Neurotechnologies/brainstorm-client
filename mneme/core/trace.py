@@ -2,7 +2,7 @@
 This module defines :class:'Trace'
 """
 
-import sys
+import sys, signal
 import imutils
 import numpy as np
 import time
@@ -69,41 +69,28 @@ class Trace(object):
         print('my sid is', self.socket.sid)
         
         print('Initializing board')
-        board = initialize_board(stream,port)
+        self.board = initialize_board(stream,port)
         print('Starting stream')
-        start_time = start_stream(board)
+        self.start_time = start_stream(self.board)
+        signal.signal(signal.SIGINT, self.signal_handler)
 
         while True:
-            data = pull_data(board,board.rate)
-            t = data[board.time_channel]
-            data = data[board.eeg_channels]
-            try:
-                t = t - start_time
+            data = pull_data(self.board,self.board.rate)
+            t = data[self.board.time_channel]
+            data = data[self.board.eeg_channels]
+            if len(t) > 0:
+                t = t - self.start_time
                 print(t[-1])
-            except:
-                pass
-            
             # Scaling down the raw feed...
             self.socket.emit('real_bci', {'signal':(data[1]/100).tolist(),
             'time': (t*1000).tolist()})
-        data = pull_data(board)
-
-        nans, x= nan_helper(data)
-        data[nans]= np.interp(x(nans), x(~nans), data[~nans])
-
-        self.data = data[board.eeg_channels] * pq.uV
-        self.details['time_channel'] = (data[board.time_channel] - data[board.time_channel][0])*pq.s
-        self.details['voltage_units'] = 'uV'
-        stop_stream(board,start_time)
-
-        self.save(self.date,'traces')
-
+            
     def save(self,label=None,datadir='traces'):
         datadir = "traces"
         if not os.path.exists(datadir):
             os.mkdir(datadir)
 
-        print(f"Saving trace...")
+        print(f"Saving " + self.id + "'s trace...")
         filename = os.path.join(datadir, f"{self.id}{label}")
         with open(filename, "wb") as fp:
             pickle.dump(self, fp)
@@ -113,3 +100,34 @@ class Trace(object):
     def load(self):
         print('Loading ' + self.id + '...')
         self.reader = neo.get_io(filename=self.id)
+
+    
+    def signal_handler(self, signal, frame):
+
+        print('\nExiting brainstorm-client.')
+        flag = True
+
+        # Disconnect socket
+        self.socket.disconnect()
+        delattr(self, 'socket')
+
+        while flag:
+        # Give the option to save data locally
+            save_choice = input("\nWould you like to save your data locally? (y/n) ")
+            if save_choice == 'y':
+                data = pull_data(self.board)
+                nans, x= nan_helper(data)
+                data[nans]= np.interp(x(nans), x(~nans), data[~nans])
+                self.data = data[self.board.eeg_channels] * pq.uV
+                self.details['time_channel'] = (data[self.board.time_channel] - data[self.board.time_channel][0])*pq.s
+                self.details['voltage_units'] = 'uV'
+                self.save(self.date,'traces')
+                flag = False
+            if save_choice == 'n': 
+                flag = False
+            else: 
+                print("Invalid input.")
+
+        stop_stream(self.board,self.start_time)
+
+        sys.exit(0)
