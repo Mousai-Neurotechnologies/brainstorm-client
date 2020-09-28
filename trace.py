@@ -4,19 +4,13 @@ This module defines :class:'Trace'
 
 import sys, signal
 import imutils
+import matplotlib.pyplot as plt
 import numpy as np
 import time
-import cv2
 import os
-import neo
-from mneme.utils.utility_funcs import nan_helper
-from mneme.utils.realtime_streams import initialize_board,start_stream,pull_data,stop_stream
-from mneme.utils.realtime_viewer import EventManager,query_key
-import quantities as pq
-from math import cos,sin
 import pickle
 import datetime
-
+from brainflow.board_shim import BoardShim, BrainFlowInputParams, LogLevels, BoardIds
 import socketio
 
 
@@ -27,6 +21,7 @@ class Trace(object):
         """
 
         self.id = id
+        self.channel = 0
         self.date = datetime.datetime.now().strftime("%d-%m-%Y_%I-%M-%S_%p")
         self.reader = []
         self.data = []
@@ -71,18 +66,19 @@ class Trace(object):
         print('Initializing board')
         self.board = initialize_board(stream,port)
         print('Starting stream')
-        self.start_time = start_stream(self.board)
+        self.board.start_stream(num_samples=450000)
+        self.start_time = time.time()
         signal.signal(signal.SIGINT, self.signal_handler)
 
         while True:
-            data = pull_data(self.board,self.board.rate)
+            data = self.board.get_current_board_data(num_samples=self.board.rate)
             t = data[self.board.time_channel]
             data = data[self.board.eeg_channels]
             if len(t) > 0:
                 t = t - self.start_time
                 print(t[-1])
             # Scaling down the raw feed...
-            self.socket.emit('real_bci', {'signal':(data[1]/100).tolist(),
+            self.socket.emit('real_bci', {'signal':(data[self.channel]/100).tolist(),
             'time': (t*1000).tolist()})
             
     def save(self,label=None,datadir='traces'):
@@ -101,6 +97,19 @@ class Trace(object):
         print('Loading ' + self.id + '...')
         self.reader = neo.get_io(filename=self.id)
 
+    def plot(self):
+        plt.figure()
+        print('Only for channel #' + str(self.channel))
+        data = self.board.get_current_board_data(num_samples=self.board.rate)
+        t = data[self.board.time_channel] - self.start_time
+        data = data[self.board.eeg_channels][self.channel]
+        plt.plot(t, data)
+        plt.title('OpenBCI Stream History')
+        plt.ylabel('Voltage')
+        plt.xlabel('Time (s)')
+
+        plt.show()
+
     
     def signal_handler(self, signal, frame):
 
@@ -114,15 +123,16 @@ class Trace(object):
         # Stop stream
         self.board.stop_stream()
 
+        self.plot()
+
         while flag:
         # Give the option to save data locally
             save_choice = input("\nWould you like to save your data locally? (y/n) ")
             if save_choice == 'y':
-                data = pull_data(self.board)
                 nans, x= nan_helper(data)
                 data[nans]= np.interp(x(nans), x(~nans), data[~nans])
-                self.data = data[self.board.eeg_channels] * pq.uV
-                self.details['time_channel'] = (data[self.board.time_channel] - data[self.board.time_channel][0])*pq.s
+                self.data = data[self.board.eeg_channels]
+                self.details['time_channel'] = (data[self.board.time_channel] - data[self.board.time_channel][0])
                 self.details['voltage_units'] = 'uV'
                 self.save(self.date,'traces')
                 flag = False
@@ -134,3 +144,33 @@ class Trace(object):
         self.board.release_session()
 
         sys.exit('Exiting brainstorm-client...')
+
+def initialize_board(name='SYNTHETIC',port = None):
+    if name == 'SYNTHETIC':
+        BoardShim.enable_dev_board_logger()
+
+        # use synthetic board for demo
+        params = BrainFlowInputParams()
+        board_id = BoardIds.SYNTHETIC_BOARD.value
+        board = BoardShim(board_id, params)
+        board.rate = BoardShim.get_sampling_rate(board_id)
+        board.channels = BoardShim.get_eeg_channels(board_id)
+        board.time_channel = BoardShim.get_timestamp_channel(board_id)
+        board.eeg_channels = BoardShim.get_eeg_channels(board_id)
+        board.accel_channels = BoardShim.get_accel_channels(board_id)
+
+    elif name == 'OPENBCI':
+
+        board_id = BoardIds.CYTON_DAISY_BOARD.value
+        params = BrainFlowInputParams()
+        params.serial_port = port
+        board_id = BoardIds.CYTON_DAISY_BOARD.value
+        board = BoardShim(board_id, params)
+        board.rate = BoardShim.get_sampling_rate(board_id)
+        board.channels = BoardShim.get_eeg_channels(board_id)
+        board.time_channel = BoardShim.get_timestamp_channel(board_id)
+        board.eeg_channels = BoardShim.get_eeg_channels(board_id)
+        board.accel_channels = BoardShim.get_accel_channels(board_id)
+
+    board.prepare_session()
+    return board

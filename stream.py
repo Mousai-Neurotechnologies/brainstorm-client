@@ -1,9 +1,6 @@
 import sys
-import mneme
 import os
-from mneme.core import Trace
-from mneme.utils import realtime_streams, features, plots
-import quantities as pq
+from trace import Trace 
 import numpy as np
 import pickle
 
