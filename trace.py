@@ -3,7 +3,6 @@ This module defines :class:'Trace'
 """
 
 import sys, signal
-import imutils
 import matplotlib.pyplot as plt
 import numpy as np
 import time
@@ -92,23 +91,20 @@ class Trace(object):
             pickle.dump(self, fp)
         print(self.id + " saved!")
 
-    
-    def load(self):
-        print('Loading ' + self.id + '...')
-        self.reader = neo.get_io(filename=self.id)
-
     def plot(self):
         plt.figure()
         print('Only for channel #' + str(self.channel))
-        data = self.board.get_current_board_data(num_samples=self.board.rate)
+        data = self.board.get_current_board_data(num_samples=450000)
         t = data[self.board.time_channel] - self.start_time
-        data = data[self.board.eeg_channels][self.channel]
-        plt.plot(t, data)
+        eeg_data = data[self.board.eeg_channels][self.channel]
+        plt.plot(t, eeg_data)
         plt.title('OpenBCI Stream History')
         plt.ylabel('Voltage')
         plt.xlabel('Time (s)')
 
         plt.show()
+        
+        return data
 
     
     def signal_handler(self, signal, frame):
@@ -123,14 +119,14 @@ class Trace(object):
         # Stop stream
         self.board.stop_stream()
 
-        self.plot()
+        data = self.plot()
 
         while flag:
         # Give the option to save data locally
             save_choice = input("\nWould you like to save your data locally? (y/n) ")
             if save_choice == 'y':
-                nans, x= nan_helper(data)
-                data[nans]= np.interp(x(nans), x(~nans), data[~nans])
+                # nans, x= nan_helper(data)
+                # data[nans]= np.interp(x(nans), x(~nans), data[~nans])
                 self.data = data[self.board.eeg_channels]
                 self.details['time_channel'] = (data[self.board.time_channel] - data[self.board.time_channel][0])
                 self.details['voltage_units'] = 'uV'
