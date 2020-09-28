@@ -22,7 +22,7 @@ conda env create -f environment.yml
 
 4. Activate the Brainstorm Client environment: 
 ```
-conda activate brainstorm
+conda activate brainstorm-client
 ```
 
 5. Begin streaming from the Brainstorm Client
