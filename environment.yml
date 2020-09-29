@@ -3,10 +3,15 @@ channels:
   - defaults
 dependencies:
   - blas=1.0=mkl
+  - brotlipy=0.7.0=py38haf1e3a3_1000
   - ca-certificates=2020.7.22=0
   - certifi=2020.6.20=py38_0
+  - cffi=1.14.3=py38hed5b41f_0
+  - chardet=3.0.4=py38_1003
+  - cryptography=3.1.1=py38hddc9c9b_0
   - cycler=0.10.0=py38_0
   - freetype=2.10.2=ha233b18_0
+  - idna=2.10=py_0
   - intel-openmp=2019.4=233
   - jpeg=9b=he5867d9_2
   - kiwisolver=1.2.0=py38h04f5b5a_0
@@ -30,14 +35,19 @@ dependencies:
   - openssl=1.1.1h=haf1e3a3_0
   - pillow=7.2.0=py38ha54b6ba_0
   - pip=20.2.2=py38_0
+  - pycparser=2.20=py_2
+  - pyopenssl=19.1.0=py_1
   - pyparsing=2.4.7=py_0
+  - pysocks=1.7.1=py38_1
   - python=3.8.5=h26836e1_1
   - python-dateutil=2.8.1=py_0
   - readline=8.0=h1de35cc_0
+  - requests=2.24.0=py_0
   - six=1.15.0=py_0
   - sqlite=3.33.0=hffcf06c_0
   - tk=8.6.10=hb0a8c7a_0
   - tornado=6.0.4=py38h1de35cc_1
+  - urllib3=1.25.10=py_0
   - wheel=0.35.1=py_0
   - xz=5.2.5=h1de35cc_0
   - zlib=1.2.11=h1de35cc_3
@@ -50,3 +60,5 @@ dependencies:
     - python-socketio==4.6.0
     - setuptools==47.1.0
     - typish==1.7.0
+prefix: /opt/anaconda3/envs/brainstorm-client
+

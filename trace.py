@@ -58,8 +58,8 @@ class Trace(object):
         self.details[attribute] = value
 
     def capture(self, stream,port=None,model=None,categories=None,details=None):
-        url = 'mousai.azurewebsites.net' #'localhost'
-        self.socket.connect('https://' + url)
+        url = 'https://mousai.azurewebsites.net' #'http://localhost'
+        self.socket.connect(url)
         print('my sid is', self.socket.sid)
         
         print('Initializing board')
@@ -77,7 +77,7 @@ class Trace(object):
                 t = t - self.start_time
                 print(t[-1])
             # Scaling down the raw feed...
-            self.socket.emit('real_bci', {'signal':(data[self.channel]/100).tolist(),
+            self.socket.emit('real_bci', {'signal':(data[self.channel]).tolist(),
             'time': (t*1000).tolist()})
             
     def save(self,label=None,datadir='traces'):
