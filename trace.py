@@ -6,11 +6,13 @@ import sys, signal
 import matplotlib.pyplot as plt
 import numpy as np
 import time
+import matplotlib.animation as animation
 import os
 import pickle
 import datetime
 from brainflow.board_shim import BoardShim, BrainFlowInputParams, LogLevels, BoardIds
 import socketio
+from brainflow.data_filter import DataFilter, FilterTypes
 
 
 class Trace(object):
@@ -20,7 +22,7 @@ class Trace(object):
         """
 
         self.id = id
-        self.channel = 0
+        self.channel = -2
         self.date = datetime.datetime.now().strftime("%d-%m-%Y_%I-%M-%S_%p")
         self.reader = []
         self.data = []
@@ -57,8 +59,8 @@ class Trace(object):
     def prime(self, attribute, value):
         self.details[attribute] = value
 
-    def capture(self, stream,port=None,model=None,categories=None,details=None):
-        url = 'https://mousai.azurewebsites.net' #'http://localhost'
+    def capture(self, stream,port=None,plot=False, model=None,categories=None,details=None):
+        url = 'https://mousai.azurewebsites.net' 
         self.socket.connect(url)
         print('my sid is', self.socket.sid)
         
@@ -69,17 +71,53 @@ class Trace(object):
         self.start_time = time.time()
         signal.signal(signal.SIGINT, self.signal_handler)
 
+        # # initialise plot and line
+        # fig = plt.figure()
+        # ax = fig.add_subplot(1, 1, 1)
+        # xs = []
+        # ys = []
+
+        # def animate(i, xs, ys): 
+        #     data = self.board.get_current_board_data(num_samples=DataFilter.get_nearest_power_of_two(self.board.rate))#1)
+        #     t = data[self.board.time_channel]
+        #     data = data[self.board.eeg_channels][self.channel]
+        #     if len(t) > 0:
+        #         t = t - self.start_time
+        #     DataFilter.perform_highpass(data, self.board.rate, 3.0, 4, FilterTypes.BUTTERWORTH.value, 0)
+        #     self.socket.emit('bci', {'signal':(data).tolist(),
+        #     'time': (t*1000).tolist()})
+
+        #     xs.append(t[-1])
+        #     ys.append(data[-1])
+
+        #     # Limit x and y lists to 20 items
+        #     xs = xs[-20:]
+        #     ys = ys[-20:]
+
+        #     # Draw x and y lists
+        #     ax.clear()
+        #     ax.plot(xs, ys)
+
+        #     # Format plot
+        #     plt.xticks(rotation=45, ha='right')
+        #     plt.subplots_adjust(bottom=0.30)
+        #     plt.title('OpenBCI Live Stream')
+        #     plt.ylabel('Voltage')
+        
+        # ani = animation.FuncAnimation(fig, animate, fargs=(xs, ys), interval=1)
+        # plt.show()   
+
         while True:
-            data = self.board.get_current_board_data(num_samples=self.board.rate)
+            data = self.board.get_current_board_data(num_samples=DataFilter.get_nearest_power_of_two(self.board.rate))#1)
             t = data[self.board.time_channel]
-            data = data[self.board.eeg_channels]
+            data = data[self.board.eeg_channels][self.channel]
             if len(t) > 0:
                 t = t - self.start_time
-                print(t[-1])
-            # Scaling down the raw feed...
-            self.socket.emit('real_bci', {'signal':(data[self.channel]).tolist(),
+            DataFilter.perform_highpass(data, self.board.rate, 3.0, 4, FilterTypes.BUTTERWORTH.value, 0)
+            self.socket.emit('bci', {'signal':(data).tolist(),
             'time': (t*1000).tolist()})
-            
+            time.sleep(.01)
+
     def save(self,label=None,datadir='traces'):
         datadir = "traces"
         if not os.path.exists(datadir):
@@ -96,8 +134,10 @@ class Trace(object):
         print('Only for channel #' + str(self.channel))
         data = self.board.get_current_board_data(num_samples=450000)
         t = data[self.board.time_channel] - self.start_time
-        eeg_data = data[self.board.eeg_channels][self.channel]
-        plt.plot(t, eeg_data)
+        data = data[self.board.eeg_channels][self.channel]
+        DataFilter.perform_highpass(data, self.board.rate, 3.0, 4, FilterTypes.BUTTERWORTH.value, 0)
+
+        plt.plot(t, data)
         plt.title('OpenBCI Stream History')
         plt.ylabel('Voltage')
         plt.xlabel('Time (s)')
