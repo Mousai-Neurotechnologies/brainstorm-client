@@ -4,7 +4,7 @@ from trace import Trace
 import numpy as np
 import pickle
 
-STREAM = 'OPENBCI' #'SYNTHETIC' # 
+STREAM = 'SYNTHETIC' # 'OPENBCI' #
                         # Streams
                             # OPENBCI
                             # SYNTHETIC
@@ -13,7 +13,7 @@ STREAM = 'OPENBCI' #'SYNTHETIC' #
                             # Mac: '/dev/cu.usbserial-DM01N7AE'
                             # Windows: 'COM4'
                             # Synthetic: None
-PORT = '/dev/cu.usbserial-DM01N7AE' #None # 
+PORT =   None # '/dev/cu.usbserial-DM01N7AE' #
 
 # Initialize the Trace
 trace = Trace(id = 'User')

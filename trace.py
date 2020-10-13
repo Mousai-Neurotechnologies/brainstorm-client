@@ -108,13 +108,14 @@ class Trace(object):
         # plt.show()   
 
         while True:
-            data = self.board.get_current_board_data(num_samples=DataFilter.get_nearest_power_of_two(self.board.rate))#1)
+            rate = DataFilter.get_nearest_power_of_two(self.board.rate)
+            data = self.board.get_current_board_data(num_samples=rate)#1)
             t = data[self.board.time_channel]
             data = data[self.board.eeg_channels][self.channel]
             if len(t) > 0:
                 t = t - self.start_time
             DataFilter.perform_highpass(data, self.board.rate, 3.0, 4, FilterTypes.BUTTERWORTH.value, 0)
-            self.socket.emit('bci', {'signal':(data).tolist(),
+            self.socket.emit('bci', {'signal':[(data).tolist()],
             'time': (t*1000).tolist()})
             time.sleep(.01)
 
