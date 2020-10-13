@@ -22,7 +22,8 @@ class Trace(object):
         """
 
         self.id = id
-        self.channel = -2
+        self.all_channels = False
+        self.channels = [-2] # Ignored if all_channels is True
         self.date = datetime.datetime.now().strftime("%d-%m-%Y_%I-%M-%S_%p")
         self.reader = []
         self.data = []
@@ -108,14 +109,24 @@ class Trace(object):
         # plt.show()   
 
         while True:
+            pass_data = []
             rate = DataFilter.get_nearest_power_of_two(self.board.rate)
             data = self.board.get_current_board_data(num_samples=rate)#1)
             t = data[self.board.time_channel]
-            data = data[self.board.eeg_channels][self.channel]
+
+            if self.all_channels:
+                data = data[self.board.eeg_channels] / 5 # SCALED
+            else:
+                data = data[self.board.eeg_channels][self.channels] / 5 # SCALED
+
+            for entry in data:
+                pass_data.append(entry.tolist())
+
             if len(t) > 0:
                 t = t - self.start_time
-            DataFilter.perform_highpass(data, self.board.rate, 3.0, 4, FilterTypes.BUTTERWORTH.value, 0)
-            self.socket.emit('bci', {'signal':[(data).tolist()],
+
+            # DataFilter.perform_highpass(data, self.board.rate, 3.0, 4, FilterTypes.BUTTERWORTH.value, 0)
+            self.socket.emit('bci', {'signal':pass_data,
             'time': (t*1000).tolist()})
             time.sleep(.01)
 
@@ -132,10 +143,10 @@ class Trace(object):
 
     def plot(self):
         plt.figure()
-        print('Only for channel #' + str(self.channel))
+        print('Only for channel #' + str(self.channels[0]))
         data = self.board.get_current_board_data(num_samples=450000)
         t = data[self.board.time_channel] - self.start_time
-        data = data[self.board.eeg_channels][self.channel]
+        data = data[self.board.eeg_channels][self.channels[0]]
         DataFilter.perform_highpass(data, self.board.rate, 3.0, 4, FilterTypes.BUTTERWORTH.value, 0)
 
         plt.plot(t, data)
