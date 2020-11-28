@@ -10,8 +10,12 @@ import matplotlib.animation as animation
 import os
 import pickle
 import datetime
+import websockets
+from urllib.parse import urlparse
+import json
+import requests
 from brainflow.board_shim import BoardShim, BrainFlowInputParams, LogLevels, BoardIds
-import socketio
+# import socketio
 from brainflow.data_filter import DataFilter, FilterTypes
 
 
@@ -22,34 +26,16 @@ class Trace(object):
         """
 
         self.id = id
-        self.all_channels = False
-        self.channels = [-2] # Ignored if all_channels is True
+        self.all_channels = True
+        self.channels = [-1,-2,-3,-4,-5,-6,-7,-8] # Ignored
         self.date = datetime.datetime.now().strftime("%d-%m-%Y_%I-%M-%S_%p")
+        s = requests.Session()
+        s.headers['mode'] = 'cors'
+        s.headers['credentials'] = 'include'
+        self.session = s
         self.reader = []
         self.data = []
         self.details = {}
-        self.socket = socketio.Client()
-
-        @self.socket.event
-        def connect():
-            print('connection established')
-
-        @self.socket.event
-        def connect_error():
-            print("The connection failed!")
-
-        @self.socket.event
-        def my_message(data):
-            print('message received with ', data)
-            sio.emit('my response', {'response': 'my response'})
-
-        @self.socket.event
-        def disconnect():
-            print('disconnected from server')
-
-        @self.socket.on('my message')
-        def on_message(data):
-            print('I received a message!')
 
     def __repr__(self):
         return "Trace('{},'{}',{})".format(self.id, self.date)
@@ -60,17 +46,31 @@ class Trace(object):
     def prime(self, attribute, value):
         self.details[attribute] = value
 
-    def capture(self, stream,port=None,plot=False, model=None,categories=None,details=None):
-        url = 'https://mousai.azurewebsites.net' 
-        self.socket.connect(url)
-        print('my sid is', self.socket.sid)
+    async def capture(self, stream,url, port=None,plot=False, model=None,categories=None,details=None):
+
+        # Authenticate
+        res = self.session.post(url + '/login')
+
+        cookies = ""
+        cookieDict = res.cookies.get_dict()
+        for cookie in (cookieDict):
+            cookies += str(cookie + "=" + cookieDict[cookie] + "; ")
         
-        print('Initializing board')
-        self.board = initialize_board(stream,port)
-        print('Starting stream')
-        self.board.start_stream(num_samples=450000)
-        self.start_time = time.time()
-        signal.signal(signal.SIGINT, self.signal_handler)
+        o = urlparse(url)
+        if (o.scheme == 'http'):
+            uri = "ws://" + o.netloc
+        elif (o.scheme == 'https'):
+            uri = "wss://" + o.netloc
+        else:
+            print('not a valid url scheme')
+
+        async with websockets.connect(uri,ping_interval=None, extra_headers=[('cookie', cookies)]) as websocket:
+            print('Initializing board')
+            self.board = initialize_board(stream,port)
+            print('Starting stream')
+            self.board.start_stream(num_samples=450000)
+            self.start_time = time.time()
+            signal.signal(signal.SIGINT, self.signal_handler)
 
         # # initialise plot and line
         # fig = plt.figure()
@@ -109,25 +109,41 @@ class Trace(object):
         # plt.show()   
 
         while True:
+
+            # Get Data
             pass_data = []
             rate = DataFilter.get_nearest_power_of_two(self.board.rate)
             data = self.board.get_current_board_data(num_samples=rate)#1)
             t = data[self.board.time_channel]
 
             if self.all_channels:
-                data = data[self.board.eeg_channels] / 5 # SCALED
+                data = data[self.board.eeg_channels] # SCALED
             else:
-                data = data[self.board.eeg_channels][self.channels] / 5 # SCALED
+                data = data[self.board.eeg_channels][self.channels] # SCALED
 
             for entry in data:
-                pass_data.append(entry.tolist())
+                DataFilter.perform_highpass(entry, self.board.rate, 3.0, 4, FilterTypes.BUTTERWORTH.value, 0)
+                pass_data.append((entry).tolist())
 
             if len(t) > 0:
                 t = t - self.start_time
 
-            # DataFilter.perform_highpass(data, self.board.rate, 3.0, 4, FilterTypes.BUTTERWORTH.value, 0)
-            self.socket.emit('bci', {'signal':pass_data,
-            'time': (t*1000).tolist()})
+            message = {
+                'destination': 'bci', 
+            'data': {'ts_filtered':pass_data}
+            }
+            message = json.dumps(message, separators=(',', ':'))
+            
+            
+            # (Re)Open Websocket Connection
+            if not websocket.open:
+                try:
+                    print('Websocket is NOT connected. Reconnecting...')
+                    websocket = await websockets.connect(uri,ping_interval=None, extra_headers=[('cookie', cookies)])
+                except:
+                    print('Unable to reconnect, trying again.')
+
+            await websocket.send(message)
             time.sleep(.01)
 
     def save(self,label=None,datadir='traces'):
@@ -163,10 +179,6 @@ class Trace(object):
 
         print('\nStopping data stream.')
         flag = True
-
-        # Disconnect socket
-        self.socket.disconnect()
-        delattr(self, 'socket')
 
         # Stop stream
         self.board.stop_stream()
